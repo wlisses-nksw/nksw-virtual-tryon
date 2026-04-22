@@ -3,7 +3,7 @@
 // Retorna imediatamente (< 1s) — sem polling aqui, evita timeout do free tier.
 
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
-const KOLORS_MODEL = 'kwai-kolors/kolors-virtual-try-on';
+const TRYON_MODEL = 'cuuupid/idm-vton';
 const MAX_BODY_BYTES = 12 * 1024 * 1024; // 12 MB
 
 function cors() {
@@ -14,15 +14,14 @@ function cors() {
   };
 }
 
-// Mapeia categorias NKSW para as categorias do Kolors
 function mapCategory(category) {
   const map = {
-    'tops': 'Upper body',
-    'bottoms': 'Lower body',
-    'one-pieces': 'Dresses',
-    'auto': 'Upper body',
+    'tops': 'upper_body',
+    'bottoms': 'lower_body',
+    'one-pieces': 'dresses',
+    'auto': 'upper_body',
   };
-  return map[category] || 'Upper body';
+  return map[category] || 'upper_body';
 }
 
 export default async function handler(req, res) {
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Imagem muito grande. Reduza para menos de 9 MB.' });
     }
 
-    const replicateRes = await fetch(`${REPLICATE_BASE}/models/${KOLORS_MODEL}/predictions`, {
+    const replicateRes = await fetch(`${REPLICATE_BASE}/models/${TRYON_MODEL}/predictions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,6 +62,8 @@ export default async function handler(req, res) {
           human_img: model_image,
           garm_img: garment_image,
           category: mapCategory(category),
+          crop: false,
+          steps: 30,
         },
       }),
     });

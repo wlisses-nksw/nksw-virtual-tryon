@@ -4,12 +4,9 @@
 
 const FASHN_BASE = 'https://api.fashn.ai/v1';
 
-function cors(req) {
-  const allowed = (process.env.ALLOWED_SHOP_DOMAIN || '').split(',').map(d => d.trim());
-  const origin = req.headers.origin || '';
-  const allowedOrigin = allowed.some(d => origin.includes(d)) ? origin : (allowed[0] || '*');
+function cors() {
   return {
-    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
@@ -27,7 +24,7 @@ function bufferToBase64(buffer) {
 }
 
 export default async function handler(req, res) {
-  const headers = cors(req);
+  const headers = cors();
   Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
 
   if (req.method === 'OPTIONS') return res.status(204).end();

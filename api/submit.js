@@ -47,14 +47,17 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model_image,
-        garment_image,
-        category,
-        mode: 'quality',
-        moderation_level: 'permissive', // necessário para biquinis/lingerie
-        garment_photo_type: 'auto',
-        restore_background: true,
-        restore_clothes: true,
+        model_name: 'tryon',
+        inputs: {
+          model_image,
+          garment_image,
+          category,
+          mode: 'quality',
+          moderation_level: 'permissive',
+          garment_photo_type: 'auto',
+          restore_background: true,
+          restore_clothes: true,
+        },
       }),
     });
 

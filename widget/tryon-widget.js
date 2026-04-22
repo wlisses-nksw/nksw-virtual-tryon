@@ -391,6 +391,22 @@
       }
     }
 
+    function leadStarted() {
+      return !leadDone && leadForm.style.display !== 'none' && (
+        leadName.value.trim() || leadPhone.value.trim() || leadEmail.value.trim()
+      );
+    }
+
+    function shakeLeadForm() {
+      leadForm.style.transition = 'transform 0.08s';
+      const steps = [6, -6, 4, -4, 0];
+      steps.reduce((p, x, i) => p.then(() => new Promise(r => setTimeout(() => {
+        leadForm.style.transform = `translateX(${x}px)`; r();
+      }, i === steps.length - 1 ? 80 : 80))), Promise.resolve())
+        .then(() => { leadForm.style.transform = ''; leadForm.style.transition = ''; });
+      leadEmail.focus();
+    }
+
     function closeModal() {
       clearInterval(pollTimer);
       resultImg.src = '';
@@ -399,9 +415,14 @@
       document.body.style.overflow = '';
     }
 
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-    closeBtn.addEventListener('click', closeModal);
-    const onKey = e => { if (e.key === 'Escape') { closeModal(); document.removeEventListener('keydown', onKey); } };
+    function tryClose() {
+      if (leadStarted()) { shakeLeadForm(); return; }
+      closeModal();
+    }
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) tryClose(); });
+    closeBtn.addEventListener('click', tryClose);
+    const onKey = e => { if (e.key === 'Escape') { tryClose(); if (!leadStarted()) document.removeEventListener('keydown', onKey); } };
     document.addEventListener('keydown', onKey);
 
     fileInput.addEventListener('change', e => { const f = e.target.files?.[0]; if (f) setFile(f); });

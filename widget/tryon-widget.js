@@ -336,14 +336,18 @@
       leadSubmit.textContent = 'Enviando...';
 
       try {
-        await fetch(`${apiBase}/api/lead`, {
+        const body = new URLSearchParams({
+          'form_type': 'customer',
+          'utf8': '✓',
+          'contact[email]': email,
+          'contact[first_name]': leadName.value.trim(),
+          'contact[phone]': leadPhone.value.trim(),
+          'contact[tags]': 'newsletter',
+        });
+        await fetch('/contact', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name:  leadName.value.trim(),
-            phone: leadPhone.value.trim(),
-            email,
-          }),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
         });
       } catch (_) { /* falha silenciosa */ }
 

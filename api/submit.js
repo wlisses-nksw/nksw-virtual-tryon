@@ -45,9 +45,15 @@ async function getAccessToken(credentials) {
 }
 
 async function fetchBase64(url) {
+  if (!url) throw new Error('URL do produto está vazia');
+  if (url.startsWith('//')) url = 'https:' + url;
+  if (!url.startsWith('http')) url = 'https://' + url;
+  console.log('[submit] Baixando imagem do produto:', url.slice(0, 100));
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Falha ao baixar imagem do produto: ${res.status}`);
+  if (!res.ok) throw new Error(`Falha ao baixar imagem do produto: ${res.status} - ${url.slice(0, 80)}`);
   const buf = await res.arrayBuffer();
+  if (buf.byteLength === 0) throw new Error('Imagem do produto baixada está vazia');
+  console.log('[submit] Imagem do produto: ', buf.byteLength, 'bytes');
   return Buffer.from(buf).toString('base64');
 }
 

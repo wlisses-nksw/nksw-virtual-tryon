@@ -336,29 +336,49 @@
       leadSubmit.textContent = 'Enviando...';
 
       try {
-        // Pega o CSRF token do Shopify — obrigatório para submissões via fetch
-        const csrfToken =
-          document.querySelector('input[name="authenticity_token"]')?.value ||
-          document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-          '';
+        // Submissão via iframe — mesma mecânica do formulário nativo do Shopify
+        const iframeName = 'nksw-lead-iframe-' + Date.now();
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName;
+        iframe.style.cssText = 'display:none;position:absolute;';
+        document.body.appendChild(iframe);
 
-        const body = new URLSearchParams({
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/contact#contact_form';
+        form.target = iframeName;
+        form.style.display = 'none';
+
+        const fields = {
           'form_type': 'customer',
           'utf8': '✓',
           'contact[email]': email,
           'contact[first_name]': leadName.value.trim(),
           'contact[phone]': leadPhone.value.trim(),
           'contact[tags]': 'newsletter',
-          ...(csrfToken ? { 'authenticity_token': csrfToken } : {}),
+        };
+
+        // Inclui CSRF token se disponível na página
+        const csrf = document.querySelector('input[name="authenticity_token"]')?.value
+          || document.querySelector('meta[name="csrf-token"]')?.content;
+        if (csrf) fields['authenticity_token'] = csrf;
+
+        Object.entries(fields).forEach(([k, v]) => {
+          if (v == null) return;
+          const input = document.createElement('input');
+          input.type = 'hidden'; input.name = k; input.value = v;
+          form.appendChild(input);
         });
-        await fetch('/contact', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-          },
-          body: body.toString(),
-        });
+
+        document.body.appendChild(form);
+        iframe.addEventListener('load', () => {
+          document.body.removeChild(form);
+          document.body.removeChild(iframe);
+        }, { once: true });
+        setTimeout(() => {
+          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch (_) {}
+        }, 6000);
+        form.submit();
       } catch (_) { /* falha silenciosa */ }
 
       leadName.style.display  = 'none';
@@ -402,9 +422,10 @@
     }
 
     function leadStarted() {
-      return !leadDone && leadForm.style.display !== 'none' && (
-        leadName.value.trim() || leadPhone.value.trim() || leadEmail.value.trim()
-      );
+      if (leadDone) return false;
+      if (!loading.classList.contains('visible')) return false;
+      if (leadForm.style.display === 'none') return false;
+      return !!(leadName.value.trim() || leadPhone.value.trim() || leadEmail.value.trim());
     }
 
     function shakeLeadForm() {

@@ -63,6 +63,7 @@ export default async function handler(req, res) {
           human_img: model_image,
           garm_img: garment_image,
           category: mapCategory(category),
+          garment_des: 'bikini',
           crop: false,
           steps: 30,
         },

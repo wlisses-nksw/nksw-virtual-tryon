@@ -182,19 +182,6 @@
     });
   }
 
-  // Busca o CSRF token do Shopify — primeiro na página, depois via /contact
-  async function getShopifyCsrf() {
-    const fromPage =
-      document.querySelector('form input[name="authenticity_token"]')?.value ||
-      document.querySelector('meta[name="csrf-token"]')?.content;
-    if (fromPage) return fromPage;
-    try {
-      const html = await fetch('/contact').then(r => r.text());
-      const m = html.match(/name="authenticity_token"[^>]*value="([^"]+)"/);
-      return m ? m[1] : '';
-    } catch (_) { return ''; }
-  }
-
   function buildModal() {
     const overlay = document.createElement('div');
     overlay.className = 'nksw-overlay';
@@ -237,9 +224,17 @@
             </div>
           </div>
 
+          <div class="nksw-result-wrap" id="nksw-result-wrap">
+            <img class="nksw-result-img" id="nksw-result-img" alt="Resultado do provador virtual" />
+            <div class="nksw-result-actions">
+              <button class="nksw-retry-btn" id="nksw-retry-btn">🔄 Tentar novamente</button>
+              <button class="nksw-save-btn" id="nksw-save-btn">💾 Salvar foto</button>
+            </div>
+          </div>
+
           <div class="nksw-lead" id="nksw-lead">
             <div class="nksw-lead-inner">
-              <p class="nksw-lead-title">✨ Enquanto sua foto é gerada…</p>
+              <p class="nksw-lead-title">🌊 Gostou do resultado?</p>
               <p class="nksw-lead-sub">Cadastre-se e receba as novidades da Naked SW em primeira mão!</p>
               <input id="nksw-lead-name"  type="text"  placeholder="Seu nome"   autocomplete="name" />
               <input id="nksw-lead-phone" type="tel"   placeholder="WhatsApp"   autocomplete="tel" />
@@ -250,14 +245,6 @@
             <p class="nksw-lead-sent" id="nksw-lead-sent" style="display:none">
               ✅ Cadastro realizado! Fique de olho na sua caixa de entrada.
             </p>
-          </div>
-
-          <div class="nksw-result-wrap" id="nksw-result-wrap">
-            <img class="nksw-result-img" id="nksw-result-img" alt="Resultado do provador virtual" />
-            <div class="nksw-result-actions">
-              <button class="nksw-retry-btn" id="nksw-retry-btn">🔄 Tentar novamente</button>
-              <button class="nksw-save-btn" id="nksw-save-btn">💾 Salvar foto</button>
-            </div>
           </div>
 
           <p class="nksw-disclaimer">
@@ -317,10 +304,6 @@
     let selectedDataUrl = null;
     let pollTimer = null;
     let leadDone  = false;
-    let csrfToken = '';
-
-    // Pré-carrega CSRF em background assim que o modal abre
-    getShopifyCsrf().then(t => { csrfToken = t; });
 
     function showError(msg) { errorDiv.textContent = msg; errorDiv.classList.add('visible'); }
     function clearError()   { errorDiv.classList.remove('visible'); }
@@ -359,44 +342,15 @@
       leadSubmit.textContent = 'Enviando...';
 
       try {
-        const iframeName = 'nksw-iframe-' + Date.now();
-        const iframe = document.createElement('iframe');
-        iframe.name = iframeName;
-        iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
-        document.body.appendChild(iframe);
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/contact#contact_form';
-        form.target = iframeName;
-        form.style.display = 'none';
-
-        const fields = {
-          'form_type':        'customer',
-          'utf8':             '✓',
-          'contact[email]':   email,
-          'contact[first_name]': leadName.value.trim(),
-          'contact[phone]':   leadPhone.value.trim(),
-          'contact[tags]':    'newsletter',
-          'contact[accepts_marketing]': '1',
-        };
-        if (csrfToken) fields['authenticity_token'] = csrfToken;
-
-        Object.entries(fields).forEach(([k, v]) => {
-          if (!v) return;
-          const inp = document.createElement('input');
-          inp.type = 'hidden'; inp.name = k; inp.value = v;
-          form.appendChild(inp);
+        await fetch(`${apiBase}/api/lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name:  leadName.value.trim(),
+            phone: leadPhone.value.trim(),
+            email,
+          }),
         });
-
-        document.body.appendChild(form);
-        const cleanup = () => {
-          try { document.body.removeChild(form); } catch (_) {}
-          try { document.body.removeChild(iframe); } catch (_) {}
-        };
-        iframe.addEventListener('load', cleanup, { once: true });
-        setTimeout(cleanup, 6000);
-        form.submit();
       } catch (_) { /* falha silenciosa */ }
 
       leadInner.style.display = 'none';

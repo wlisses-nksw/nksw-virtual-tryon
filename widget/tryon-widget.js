@@ -336,6 +336,12 @@
       leadSubmit.textContent = 'Enviando...';
 
       try {
+        // Pega o CSRF token do Shopify — obrigatório para submissões via fetch
+        const csrfToken =
+          document.querySelector('input[name="authenticity_token"]')?.value ||
+          document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+          '';
+
         const body = new URLSearchParams({
           'form_type': 'customer',
           'utf8': '✓',
@@ -343,10 +349,14 @@
           'contact[first_name]': leadName.value.trim(),
           'contact[phone]': leadPhone.value.trim(),
           'contact[tags]': 'newsletter',
+          ...(csrfToken ? { 'authenticity_token': csrfToken } : {}),
         });
         await fetch('/contact', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+          },
           body: body.toString(),
         });
       } catch (_) { /* falha silenciosa */ }

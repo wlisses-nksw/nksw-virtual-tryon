@@ -54,7 +54,7 @@ export default async function handler(req, res) {
           category,
           mode: 'quality',
           moderation_level: 'permissive',
-          garment_photo_type: 'auto',
+          garment_photo_type: 'flat-lay',
         },
       }),
     });

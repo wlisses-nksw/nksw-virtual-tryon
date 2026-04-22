@@ -79,7 +79,7 @@
     .nksw-generate-btn:hover:not(:disabled) { background: #333; }
     .nksw-generate-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .nksw-loading { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 8px 0; }
+    .nksw-loading { display: none; flex-direction: column; align-items: center; gap: 14px; padding: 8px 0; }
     .nksw-loading.visible { display: flex; }
     .nksw-spinner {
       width: 40px; height: 40px; border: 3px solid #eee;
@@ -88,26 +88,18 @@
     }
     @keyframes nksw-spin { to { transform: rotate(360deg) } }
     .nksw-loading-text { font-size: 14px; color: #555; text-align: center; line-height: 1.6; }
+    .nksw-progress { width: 100%; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }
+    .nksw-progress-bar { height: 100%; background: #111; border-radius: 2px; transition: width 1.8s ease; width: 0%; }
 
-    .nksw-progress {
-      width: 100%; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;
-    }
-    .nksw-progress-bar {
-      height: 100%; background: #111; border-radius: 2px;
-      transition: width 1.8s ease; width: 0%;
-    }
-
-    /* ── Lead form ── */
-    .nksw-lead {
+    /* ── Lead form — independente do spinner ── */
+    .nksw-lead { display: none; flex-direction: column; gap: 10px; }
+    .nksw-lead.visible { display: flex; }
+    .nksw-lead-inner {
       width: 100%; background: #f9f9f9; border-radius: 12px;
       padding: 16px; display: flex; flex-direction: column; gap: 10px;
     }
-    .nksw-lead-title {
-      font-size: 14px; font-weight: 700; color: #111; margin: 0; text-align: center;
-    }
-    .nksw-lead-sub {
-      font-size: 12px; color: #666; margin: 0; text-align: center; line-height: 1.5;
-    }
+    .nksw-lead-title { font-size: 14px; font-weight: 700; color: #111; margin: 0; text-align: center; }
+    .nksw-lead-sub   { font-size: 12px; color: #666; margin: 0; text-align: center; line-height: 1.5; }
     .nksw-lead input {
       width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
       font-size: 14px; font-family: inherit; box-sizing: border-box; outline: none;
@@ -123,15 +115,10 @@
     .nksw-lead-submit:disabled { opacity: 0.6; cursor: not-allowed; }
     .nksw-lead-skip {
       background: none; border: none; font-size: 12px; color: #aaa;
-      cursor: pointer; text-decoration: underline; align-self: center;
-      padding: 0;
+      cursor: pointer; text-decoration: underline; align-self: center; padding: 0;
     }
     .nksw-lead-skip:hover { color: #666; }
-    .nksw-lead-sent {
-      font-size: 13px; color: #2a7a2a; text-align: center;
-      display: none; font-weight: 600;
-    }
-    .nksw-lead-sent.visible { display: block; }
+    .nksw-lead-sent { font-size: 13px; color: #2a7a2a; text-align: center; font-weight: 600; margin: 0; }
 
     .nksw-result-wrap { display: none; flex-direction: column; gap: 14px; }
     .nksw-result-wrap.visible { display: flex; }
@@ -184,8 +171,7 @@
           height = Math.round(height * r);
         }
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
         if (!dataUrl || dataUrl === 'data:,') return reject(new Error('Falha ao processar imagem'));
@@ -194,6 +180,19 @@
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagem inválida')); };
       img.src = url;
     });
+  }
+
+  // Busca o CSRF token do Shopify — primeiro na página, depois via /contact
+  async function getShopifyCsrf() {
+    const fromPage =
+      document.querySelector('form input[name="authenticity_token"]')?.value ||
+      document.querySelector('meta[name="csrf-token"]')?.content;
+    if (fromPage) return fromPage;
+    try {
+      const html = await fetch('/contact').then(r => r.text());
+      const m = html.match(/name="authenticity_token"[^>]*value="([^"]+)"/);
+      return m ? m[1] : '';
+    } catch (_) { return ''; }
   }
 
   function buildModal() {
@@ -236,17 +235,21 @@
             <div class="nksw-progress">
               <div class="nksw-progress-bar" id="nksw-progress-bar"></div>
             </div>
+          </div>
 
-            <div class="nksw-lead" id="nksw-lead">
+          <div class="nksw-lead" id="nksw-lead">
+            <div class="nksw-lead-inner">
               <p class="nksw-lead-title">✨ Enquanto sua foto é gerada…</p>
               <p class="nksw-lead-sub">Cadastre-se e receba as novidades da Naked SW em primeira mão!</p>
-              <input id="nksw-lead-name"  type="text"  placeholder="Seu nome"       autocomplete="name" />
-              <input id="nksw-lead-phone" type="tel"   placeholder="WhatsApp"       autocomplete="tel" />
-              <input id="nksw-lead-email" type="email" placeholder="Seu e-mail"     autocomplete="email" />
+              <input id="nksw-lead-name"  type="text"  placeholder="Seu nome"   autocomplete="name" />
+              <input id="nksw-lead-phone" type="tel"   placeholder="WhatsApp"   autocomplete="tel" />
+              <input id="nksw-lead-email" type="email" placeholder="Seu e-mail" autocomplete="email" />
               <button class="nksw-lead-submit" id="nksw-lead-submit">Quero receber novidades</button>
-              <button class="nksw-lead-skip"   id="nksw-lead-skip">Pular</button>
-              <p class="nksw-lead-sent" id="nksw-lead-sent">✅ Cadastro realizado! Fique de olho na sua caixa de entrada.</p>
+              <button class="nksw-lead-skip" id="nksw-lead-skip">Pular</button>
             </div>
+            <p class="nksw-lead-sent" id="nksw-lead-sent" style="display:none">
+              ✅ Cadastro realizado! Fique de olho na sua caixa de entrada.
+            </p>
           </div>
 
           <div class="nksw-result-wrap" id="nksw-result-wrap">
@@ -283,64 +286,83 @@
       return;
     }
 
-    const overlay = buildModal();
+    const overlay    = buildModal();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
-    const fileInput    = overlay.querySelector('#nksw-file-input');
-    const dropZone     = overlay.querySelector('#nksw-drop-zone');
-    const previewWrap  = overlay.querySelector('#nksw-preview-wrap');
-    const previewImg   = overlay.querySelector('#nksw-preview-img');
-    const changeBtn    = overlay.querySelector('#nksw-change-btn');
-    const generateBtn  = overlay.querySelector('#nksw-generate-btn');
-    const loading      = overlay.querySelector('#nksw-loading');
-    const loadingText  = overlay.querySelector('#nksw-loading-text');
-    const progressBar  = overlay.querySelector('#nksw-progress-bar');
-    const resultWrap   = overlay.querySelector('#nksw-result-wrap');
-    const resultImg    = overlay.querySelector('#nksw-result-img');
-    const retryBtn     = overlay.querySelector('#nksw-retry-btn');
-    const saveBtn      = overlay.querySelector('#nksw-save-btn');
-    const errorDiv     = overlay.querySelector('#nksw-error');
-    const closeBtn     = overlay.querySelector('.nksw-close');
-    const leadForm     = overlay.querySelector('#nksw-lead');
-    const leadName     = overlay.querySelector('#nksw-lead-name');
-    const leadPhone    = overlay.querySelector('#nksw-lead-phone');
-    const leadEmail    = overlay.querySelector('#nksw-lead-email');
-    const leadSubmit   = overlay.querySelector('#nksw-lead-submit');
-    const leadSkip     = overlay.querySelector('#nksw-lead-skip');
-    const leadSent     = overlay.querySelector('#nksw-lead-sent');
+    const fileInput   = overlay.querySelector('#nksw-file-input');
+    const dropZone    = overlay.querySelector('#nksw-drop-zone');
+    const previewWrap = overlay.querySelector('#nksw-preview-wrap');
+    const previewImg  = overlay.querySelector('#nksw-preview-img');
+    const changeBtn   = overlay.querySelector('#nksw-change-btn');
+    const generateBtn = overlay.querySelector('#nksw-generate-btn');
+    const loading     = overlay.querySelector('#nksw-loading');
+    const loadingText = overlay.querySelector('#nksw-loading-text');
+    const progressBar = overlay.querySelector('#nksw-progress-bar');
+    const leadWrap    = overlay.querySelector('#nksw-lead');
+    const leadName    = overlay.querySelector('#nksw-lead-name');
+    const leadPhone   = overlay.querySelector('#nksw-lead-phone');
+    const leadEmail   = overlay.querySelector('#nksw-lead-email');
+    const leadSubmit  = overlay.querySelector('#nksw-lead-submit');
+    const leadSkip    = overlay.querySelector('#nksw-lead-skip');
+    const leadSent    = overlay.querySelector('#nksw-lead-sent');
+    const leadInner   = overlay.querySelector('.nksw-lead-inner');
+    const resultWrap  = overlay.querySelector('#nksw-result-wrap');
+    const resultImg   = overlay.querySelector('#nksw-result-img');
+    const retryBtn    = overlay.querySelector('#nksw-retry-btn');
+    const saveBtn     = overlay.querySelector('#nksw-save-btn');
+    const errorDiv    = overlay.querySelector('#nksw-error');
+    const closeBtn    = overlay.querySelector('.nksw-close');
 
     let selectedDataUrl = null;
     let pollTimer = null;
-    let leadDone = false;
+    let leadDone  = false;
+    let csrfToken = '';
+
+    // Pré-carrega CSRF em background assim que o modal abre
+    getShopifyCsrf().then(t => { csrfToken = t; });
 
     function showError(msg) { errorDiv.textContent = msg; errorDiv.classList.add('visible'); }
     function clearError()   { errorDiv.classList.remove('visible'); }
-    function setProgress(pct) { progressBar.style.width = `${pct}%`; }
+    function setProgress(p) { progressBar.style.width = `${p}%`; }
+
+    function leadIsBeingFilled() {
+      if (leadDone) return false;
+      if (!leadWrap.classList.contains('visible')) return false;
+      return !!(leadName.value.trim() || leadPhone.value.trim() || leadEmail.value.trim());
+    }
+
+    function shakeLeadForm() {
+      const steps = [6, -6, 4, -4, 0];
+      let delay = 0;
+      steps.forEach(x => {
+        setTimeout(() => { leadInner.style.transform = `translateX(${x}px)`; }, delay);
+        delay += 80;
+      });
+      setTimeout(() => { leadInner.style.transform = ''; }, delay);
+      leadEmail.focus();
+    }
 
     function hideLead() {
-      leadForm.style.display = 'none';
+      leadWrap.classList.remove('visible');
       leadDone = true;
     }
 
-    // ── Lead form ────────────────────────────────────────────────────────────
+    // ── Lead: submissão via iframe (idêntico ao formulário nativo do Shopify) ─
     leadSkip.addEventListener('click', hideLead);
 
     leadSubmit.addEventListener('click', async () => {
       const email = leadEmail.value.trim();
-      if (!email || !email.includes('@')) {
-        leadEmail.focus();
-        return;
-      }
+      if (!email || !email.includes('@')) { leadEmail.focus(); return; }
+
       leadSubmit.disabled = true;
       leadSubmit.textContent = 'Enviando...';
 
       try {
-        // Submissão via iframe — mesma mecânica do formulário nativo do Shopify
-        const iframeName = 'nksw-lead-iframe-' + Date.now();
+        const iframeName = 'nksw-iframe-' + Date.now();
         const iframe = document.createElement('iframe');
         iframe.name = iframeName;
-        iframe.style.cssText = 'display:none;position:absolute;';
+        iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
         document.body.appendChild(iframe);
 
         const form = document.createElement('form');
@@ -350,43 +372,35 @@
         form.style.display = 'none';
 
         const fields = {
-          'form_type': 'customer',
-          'utf8': '✓',
-          'contact[email]': email,
+          'form_type':        'customer',
+          'utf8':             '✓',
+          'contact[email]':   email,
           'contact[first_name]': leadName.value.trim(),
-          'contact[phone]': leadPhone.value.trim(),
-          'contact[tags]': 'newsletter',
+          'contact[phone]':   leadPhone.value.trim(),
+          'contact[tags]':    'newsletter',
+          'contact[accepts_marketing]': '1',
         };
-
-        // Inclui CSRF token se disponível na página
-        const csrf = document.querySelector('input[name="authenticity_token"]')?.value
-          || document.querySelector('meta[name="csrf-token"]')?.content;
-        if (csrf) fields['authenticity_token'] = csrf;
+        if (csrfToken) fields['authenticity_token'] = csrfToken;
 
         Object.entries(fields).forEach(([k, v]) => {
-          if (v == null) return;
-          const input = document.createElement('input');
-          input.type = 'hidden'; input.name = k; input.value = v;
-          form.appendChild(input);
+          if (!v) return;
+          const inp = document.createElement('input');
+          inp.type = 'hidden'; inp.name = k; inp.value = v;
+          form.appendChild(inp);
         });
 
         document.body.appendChild(form);
-        iframe.addEventListener('load', () => {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
-        }, { once: true });
-        setTimeout(() => {
-          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch (_) {}
-        }, 6000);
+        const cleanup = () => {
+          try { document.body.removeChild(form); } catch (_) {}
+          try { document.body.removeChild(iframe); } catch (_) {}
+        };
+        iframe.addEventListener('load', cleanup, { once: true });
+        setTimeout(cleanup, 6000);
         form.submit();
       } catch (_) { /* falha silenciosa */ }
 
-      leadName.style.display  = 'none';
-      leadPhone.style.display = 'none';
-      leadEmail.style.display = 'none';
-      leadSubmit.style.display = 'none';
-      leadSkip.style.display   = 'none';
-      leadSent.classList.add('visible');
+      leadInner.style.display = 'none';
+      leadSent.style.display  = 'block';
       leadDone = true;
     });
 
@@ -411,31 +425,11 @@
       previewWrap.classList.remove('visible');
       resultWrap.classList.remove('visible');
       loading.classList.remove('visible');
+      if (!leadDone) leadWrap.classList.remove('visible');
       dropZone.style.display = '';
       generateBtn.disabled = true;
       setProgress(0);
       clearError();
-      // Restaura lead form para próxima tentativa se ainda não enviou
-      if (!leadDone) {
-        leadForm.style.display = '';
-      }
-    }
-
-    function leadStarted() {
-      if (leadDone) return false;
-      if (!loading.classList.contains('visible')) return false;
-      if (leadForm.style.display === 'none') return false;
-      return !!(leadName.value.trim() || leadPhone.value.trim() || leadEmail.value.trim());
-    }
-
-    function shakeLeadForm() {
-      leadForm.style.transition = 'transform 0.08s';
-      const steps = [6, -6, 4, -4, 0];
-      steps.reduce((p, x, i) => p.then(() => new Promise(r => setTimeout(() => {
-        leadForm.style.transform = `translateX(${x}px)`; r();
-      }, i === steps.length - 1 ? 80 : 80))), Promise.resolve())
-        .then(() => { leadForm.style.transform = ''; leadForm.style.transition = ''; });
-      leadEmail.focus();
     }
 
     function closeModal() {
@@ -447,17 +441,21 @@
     }
 
     function tryClose() {
-      if (leadStarted()) { shakeLeadForm(); return; }
+      if (leadIsBeingFilled()) { shakeLeadForm(); return; }
       closeModal();
     }
 
     overlay.addEventListener('click', e => { if (e.target === overlay) tryClose(); });
     closeBtn.addEventListener('click', tryClose);
-    const onKey = e => { if (e.key === 'Escape') { tryClose(); if (!leadStarted()) document.removeEventListener('keydown', onKey); } };
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      tryClose();
+      if (!leadIsBeingFilled()) document.removeEventListener('keydown', onKey);
+    };
     document.addEventListener('keydown', onKey);
 
     fileInput.addEventListener('change', e => { const f = e.target.files?.[0]; if (f) setFile(f); });
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
     dropZone.addEventListener('drop', e => {
       e.preventDefault(); dropZone.classList.remove('drag-over');
@@ -466,26 +464,21 @@
     });
 
     changeBtn.addEventListener('click', resetToUpload);
-    retryBtn.addEventListener('click', resetToUpload);
+    retryBtn.addEventListener('click',  resetToUpload);
     saveBtn.addEventListener('click', () => {
       const a = document.createElement('a');
-      a.href = resultImg.src;
-      a.download = 'meu-look-nksw.jpg';
-      a.click();
+      a.href = resultImg.src; a.download = 'meu-look-nksw.jpg'; a.click();
     });
 
     // ── Fluxo principal ──────────────────────────────────────────────────────
     generateBtn.addEventListener('click', async () => {
-      if (!selectedDataUrl) {
-        showError('Aguarde o processamento da foto.');
-        return;
-      }
+      if (!selectedDataUrl) { showError('Aguarde o processamento da foto.'); return; }
       clearError();
       generateBtn.disabled = true;
       loading.classList.add('visible');
       previewWrap.classList.remove('visible');
       resultWrap.classList.remove('visible');
-      if (!leadDone) leadForm.style.display = '';
+      if (!leadDone) leadWrap.classList.add('visible');
       loadingText.innerHTML = 'Gerando seu look...<br><small>Aguarde alguns segundos</small>';
       setProgress(10);
 
@@ -493,11 +486,7 @@
         const submitRes = await fetch(`${apiBase}/api/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model_image: selectedDataUrl,
-            garment_image: garmentUrl,
-            category,
-          }),
+          body: JSON.stringify({ model_image: selectedDataUrl, garment_image: garmentUrl, category }),
         });
 
         const submitData = await submitRes.json();
@@ -517,48 +506,37 @@
 
         const { jobId } = submitData;
         let attempts = 0;
-
         await new Promise((resolve, reject) => {
           pollTimer = setInterval(async () => {
             attempts++;
             setProgress(Math.min(25 + (attempts / POLL_MAX_ATTEMPTS) * 65, 90));
-
             if (attempts > POLL_MAX_ATTEMPTS) {
               clearInterval(pollTimer);
               return reject(new Error('Timeout: o processamento demorou mais que o esperado. Tente novamente.'));
             }
-
             try {
-              const pollRes = await fetch(`${apiBase}/api/result?jobId=${encodeURIComponent(jobId)}`);
+              const pollRes  = await fetch(`${apiBase}/api/result?jobId=${encodeURIComponent(jobId)}`);
               const pollData = await pollRes.json();
-
               if (pollData.status === 'completed' && pollData.output) {
-                clearInterval(pollTimer);
-                setProgress(100);
-                resultImg.src = pollData.output;
-                resolve();
+                clearInterval(pollTimer); setProgress(100); resultImg.src = pollData.output; resolve();
               } else if (pollData.status === 'failed') {
                 clearInterval(pollTimer);
                 reject(new Error(pollData.error || 'Falha no processamento da imagem'));
               }
-            } catch (e) {
-              console.warn('[NKSW TryOn] Erro de polling (continuando):', e.message);
-            }
+            } catch (e) { console.warn('[NKSW TryOn] Polling:', e.message); }
           }, POLL_INTERVAL_MS);
         });
-
         resultWrap.classList.add('visible');
 
       } catch (err) {
-        const msg = err?.message
-          ? err.message
-          : (typeof err === 'string' ? err : JSON.stringify(err));
+        const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
         showError(msg || 'Erro inesperado. Tente novamente.');
         previewWrap.classList.add('visible');
         generateBtn.disabled = false;
         setProgress(0);
       } finally {
         loading.classList.remove('visible');
+        // Lead form permanece visível até ser submetido ou pulado
       }
     });
   }
@@ -566,9 +544,7 @@
   function init() {
     injectStyles();
     document.querySelectorAll('.nksw-tryon-btn').forEach(btn => {
-      if (!btn.dataset.apiUrl && btn.dataset.workerUrl) {
-        btn.dataset.apiUrl = btn.dataset.workerUrl;
-      }
+      if (!btn.dataset.apiUrl && btn.dataset.workerUrl) btn.dataset.apiUrl = btn.dataset.workerUrl;
       btn.addEventListener('click', () => initModal(btn));
     });
   }

@@ -55,8 +55,6 @@ export default async function handler(req, res) {
           mode: 'quality',
           moderation_level: 'permissive',
           garment_photo_type: 'auto',
-          restore_background: true,
-          restore_clothes: true,
         },
       }),
     });

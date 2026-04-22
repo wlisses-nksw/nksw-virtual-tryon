@@ -101,7 +101,7 @@ export default async function handler(req, res) {
           personImage:   { image: { bytesBase64Encoded: personBase64 } },
           productImages: [{ image: { bytesBase64Encoded: garmentBase64 } }],
         }],
-        parameters: { sampleCount: 1, safetySetting: 'block_few' },
+        parameters: { sampleCount: 1, safetySetting: 'block_few', personGeneration: 'allow_all' },
       }),
     });
 

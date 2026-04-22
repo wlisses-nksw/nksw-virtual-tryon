@@ -71,6 +71,9 @@ export default async function handler(req, res) {
     const credentials = JSON.parse(credentialsJson);
     const { model_image, garment_image, category = 'auto' } = req.body;
 
+    console.log('[submit] garment_image:', garment_image?.slice(0, 100));
+    console.log('[submit] model_image length:', model_image?.length);
+
     if (!model_image || !garment_image) {
       return res.status(400).json({ error: 'Campos obrigatórios: model_image, garment_image' });
     }

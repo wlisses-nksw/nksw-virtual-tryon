@@ -43,7 +43,8 @@
       cursor: pointer; gap: 6px; color: #999; font-size: 13px; transition: border-color 0.15s;
     }
     .model-upload-label:hover { border-color: #888; }
-    .model-upload-label input { display: none; }
+    .model-upload-label { position: relative; }
+    .model-upload-label input { position: absolute; opacity: 0; width: 0; height: 0; }
 
     /* Produto */
     .product-input { display: flex; flex-direction: column; gap: 12px; }
@@ -131,6 +132,7 @@
   </style>
 </head>
 <body>
+<input type="file" id="model-upload" accept="image/*" style="display:none" />
 
 <header>
   <h1>NKSW Provador Virtual</h1>
@@ -146,26 +148,18 @@
 <div class="container">
   <div class="grid">
 
-    <!-- COLUNA 1: Escolher modelo -->
+    <!-- COLUNA 1: Foto da cliente -->
     <div class="card">
-      <h2>1 · Escolher modelo</h2>
-      <div class="models-grid" id="models-grid">
-        <!-- Modelos pré-carregados -->
-        <div class="model-thumb" data-url="https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg">
-          <img src="https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg" alt="Modelo 1" />
-        </div>
-        <div class="model-thumb" data-url="https://images.pexels.com/photos/2787341/pexels-photo-2787341.jpeg">
-          <img src="https://images.pexels.com/photos/2787341/pexels-photo-2787341.jpeg" alt="Modelo 2" />
-        </div>
-        <div class="model-thumb" data-url="https://images.pexels.com/photos/1536619/pexels-photo-1536619.jpeg">
-          <img src="https://images.pexels.com/photos/1536619/pexels-photo-1536619.jpeg" alt="Modelo 3" />
-        </div>
-        <label class="model-upload-label" title="Enviar sua própria foto">
-          <span style="font-size:24px">📁</span>
-          <span>Sua foto</span>
-          <input type="file" id="model-upload" accept="image/*" />
-        </label>
+      <h2>1 · Foto da cliente</h2>
+      <div id="upload-zone" style="border:2px dashed #ddd;border-radius:12px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;position:relative;overflow:hidden;transition:border-color 0.2s;color:#999;font-size:14px;">
+        <span style="font-size:40px">📸</span>
+        <span>Clique para enviar a foto</span>
+        <span style="font-size:12px;color:#bbb;">JPG, PNG ou WEBP</span>
+        <input type="file" accept="image/*" id="model-upload-inner"
+          style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;font-size:0;" />
       </div>
+      <img id="model-preview" style="display:none;width:100%;border-radius:12px;margin-top:12px;border:1px solid #eee;" alt="Foto selecionada" />
+      <button id="model-change-btn" style="display:none;margin-top:8px;width:100%;padding:10px;background:none;border:1.5px solid #ccc;border-radius:8px;cursor:pointer;font-size:13px;color:#555;">Trocar foto</button>
     </div>
 
     <!-- COLUNA 2: Produto + gerar -->
@@ -254,25 +248,31 @@
     return apiUrlInput.value.trim().replace(/\/$/, '');
   }
 
-  // Seleção de modelo pré-carregado
-  document.querySelectorAll('.model-thumb').forEach(thumb => {
-    thumb.addEventListener('click', () => {
-      document.querySelectorAll('.model-thumb').forEach(t => t.classList.remove('selected'));
-      thumb.classList.add('selected');
-      selectedModelDataUrl = thumb.dataset.url;
-      updateGenerateBtn();
-    });
-  });
+  const uploadZone    = document.getElementById('upload-zone');
+  const modelPreview  = document.getElementById('model-preview');
+  const modelChangeBtn = document.getElementById('model-change-btn');
 
-  // Upload de foto própria
-  document.getElementById('model-upload').addEventListener('change', async e => {
+  document.getElementById('model-upload-inner').addEventListener('change', async e => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       selectedModelDataUrl = await processImage(file);
-      document.querySelectorAll('.model-thumb').forEach(t => t.classList.remove('selected'));
+      modelPreview.src = URL.createObjectURL(file);
+      modelPreview.style.display = 'block';
+      uploadZone.style.display = 'none';
+      modelChangeBtn.style.display = 'block';
       updateGenerateBtn();
     } catch { showError('Erro ao processar a foto enviada.'); }
+  });
+
+  modelChangeBtn.addEventListener('click', () => {
+    selectedModelDataUrl = null;
+    modelPreview.style.display = 'none';
+    modelPreview.src = '';
+    modelChangeBtn.style.display = 'none';
+    uploadZone.style.display = 'flex';
+    document.getElementById('model-upload-inner').value = '';
+    updateGenerateBtn();
   });
 
   // Preview do produto ao digitar URL
@@ -368,8 +368,18 @@
         }),
       });
       const submitData = await submitRes.json();
-      if (!submitRes.ok || !submitData.jobId) {
+      if (!submitRes.ok || (!submitData.jobId && !submitData.output)) {
         throw new Error(submitData.error || 'Falha ao enviar');
+      }
+
+      // Resultado direto (Vertex AI síncrono)
+      if (submitData.output) {
+        setProgress(100);
+        loadingState.classList.remove('visible');
+        resultImg.src = submitData.output;
+        resultImg.classList.add('visible');
+        resultActions.style.display = 'flex';
+        return;
       }
 
       loadingText.textContent = 'Gerando look... (~10s)';

@@ -353,11 +353,19 @@
         });
 
         const submitData = await submitRes.json();
-        if (!submitRes.ok || !submitData.jobId) {
+        if (!submitRes.ok || (!submitData.jobId && !submitData.output)) {
           throw new Error(submitData.error || 'Falha ao enviar para processamento');
         }
 
-        loadingText.innerHTML = 'Gerando seu look...<br><small>Isso leva cerca de 10 segundos</small>';
+        // Resultado já disponível (Vertex AI retorna síncrono)
+        if (submitData.output) {
+          setProgress(100);
+          resultImg.src = submitData.output;
+          resultWrap.classList.add('visible');
+          return;
+        }
+
+        loadingText.innerHTML = 'Gerando seu look...<br><small>Isso leva cerca de 10–20 segundos</small>';
         setProgress(25);
 
         // Passo 2: Polling — verifica o resultado a cada 2s

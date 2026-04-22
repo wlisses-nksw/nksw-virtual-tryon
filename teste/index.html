@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NKSW — Teste Provador Virtual</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #111; min-height: 100vh; }
+
+    header {
+      background: #111; color: #fff; padding: 18px 32px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+    header span { font-size: 13px; opacity: 0.5; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border-radius: 16px; padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .card h2 { font-size: 14px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #888; margin-bottom: 16px; }
+
+    /* Modelos */
+    .models-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .model-thumb {
+      border: 3px solid transparent; border-radius: 10px; overflow: hidden;
+      cursor: pointer; transition: border-color 0.15s; aspect-ratio: 3/4;
+      background: #eee;
+    }
+    .model-thumb:hover { border-color: #aaa; }
+    .model-thumb.selected { border-color: #111; }
+    .model-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .model-upload-label {
+      border: 2px dashed #ddd; border-radius: 10px; aspect-ratio: 3/4;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; gap: 6px; color: #999; font-size: 13px; transition: border-color 0.15s;
+    }
+    .model-upload-label:hover { border-color: #888; }
+    .model-upload-label input { display: none; }
+
+    /* Produto */
+    .product-input { display: flex; flex-direction: column; gap: 12px; }
+    .product-input label { font-size: 13px; color: #555; }
+    .product-input input[type=text] {
+      border: 1.5px solid #ddd; border-radius: 8px; padding: 10px 12px;
+      font-size: 13px; outline: none; transition: border-color 0.15s;
+    }
+    .product-input input[type=text]:focus { border-color: #111; }
+    .product-preview {
+      width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px;
+      border: 1px solid #eee; background: #fafafa; display: none;
+    }
+    .product-preview.visible { display: block; }
+
+    select {
+      border: 1.5px solid #ddd; border-radius: 8px; padding: 10px 12px;
+      font-size: 13px; outline: none; background: #fff; cursor: pointer;
+    }
+
+    .btn-generate {
+      width: 100%; padding: 16px; background: #111; color: #fff;
+      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s; margin-top: 8px;
+      letter-spacing: 0.3px;
+    }
+    .btn-generate:hover:not(:disabled) { background: #333; }
+    .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Resultado */
+    .result-area { display: flex; flex-direction: column; gap: 16px; }
+    .result-placeholder {
+      aspect-ratio: 3/4; border: 2px dashed #ddd; border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #bbb; font-size: 14px; gap: 8px;
+    }
+    .result-placeholder.hidden { display: none; }
+    .result-img { width: 100%; border-radius: 12px; border: 1px solid #eee; display: none; }
+    .result-img.visible { display: block; }
+
+    .loading-state {
+      aspect-ratio: 3/4; border-radius: 12px; background: #f5f5f5;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; color: #666; font-size: 14px;
+    }
+    .loading-state.visible { display: flex; }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid #ddd;
+      border-top-color: #111; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress { width: 80%; height: 4px; background: #ddd; border-radius: 2px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #111; border-radius: 2px; transition: width 1.8s ease; width: 0%; }
+
+    .result-actions { display: flex; gap: 10px; }
+    .btn-save, .btn-retry {
+      flex: 1; padding: 12px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-save { background: #111; color: #fff; border: none; }
+    .btn-save:hover { background: #333; }
+    .btn-retry { background: none; border: 1.5px solid #111; color: #111; }
+    .btn-retry:hover { background: #f5f5f5; }
+
+    .error-box {
+      display: none; background: #fff3f3; border: 1px solid #ffc0c0;
+      border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #c00;
+    }
+    .error-box.visible { display: block; }
+
+    .api-bar {
+      background: #fff; border-bottom: 1px solid #eee; padding: 12px 32px;
+      display: flex; align-items: center; gap: 12px; font-size: 13px;
+    }
+    .api-bar label { color: #666; white-space: nowrap; }
+    .api-bar input {
+      flex: 1; max-width: 480px; border: 1.5px solid #ddd; border-radius: 8px;
+      padding: 8px 12px; font-size: 13px; outline: none;
+    }
+    .api-bar input:focus { border-color: #111; }
+    .api-status { font-size: 12px; }
+    .api-status.ok { color: #2a2; }
+    .api-status.err { color: #c00; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>NKSW Provador Virtual</h1>
+  <span>— Página de Teste Interno</span>
+</header>
+
+<div class="api-bar">
+  <label>URL da API Vercel:</label>
+  <input type="text" id="api-url" placeholder="https://nksw-virtual-tryon.vercel.app" />
+  <span class="api-status" id="api-status"></span>
+</div>
+
+<div class="container">
+  <div class="grid">
+
+    <!-- COLUNA 1: Escolher modelo -->
+    <div class="card">
+      <h2>1 · Escolher modelo</h2>
+      <div class="models-grid" id="models-grid">
+        <!-- Modelos pré-carregados -->
+        <div class="model-thumb" data-url="https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg">
+          <img src="https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg" alt="Modelo 1" />
+        </div>
+        <div class="model-thumb" data-url="https://images.pexels.com/photos/2787341/pexels-photo-2787341.jpeg">
+          <img src="https://images.pexels.com/photos/2787341/pexels-photo-2787341.jpeg" alt="Modelo 2" />
+        </div>
+        <div class="model-thumb" data-url="https://images.pexels.com/photos/1536619/pexels-photo-1536619.jpeg">
+          <img src="https://images.pexels.com/photos/1536619/pexels-photo-1536619.jpeg" alt="Modelo 3" />
+        </div>
+        <label class="model-upload-label" title="Enviar sua própria foto">
+          <span style="font-size:24px">📁</span>
+          <span>Sua foto</span>
+          <input type="file" id="model-upload" accept="image/*" />
+        </label>
+      </div>
+    </div>
+
+    <!-- COLUNA 2: Produto + gerar -->
+    <div class="card">
+      <h2>2 · Produto</h2>
+      <div class="product-input">
+        <label>URL da imagem do produto (Shopify CDN ou qualquer URL)</label>
+        <input type="text" id="garment-url" placeholder="https://cdn.shopify.com/s/files/..." />
+        <img class="product-preview" id="product-preview" alt="Produto" />
+
+        <label>Categoria</label>
+        <select id="category">
+          <option value="tops">Top / Biquíni top</option>
+          <option value="bottoms">Calcinha / Bottom</option>
+          <option value="one-pieces">Maiô / Body inteiro</option>
+          <option value="auto">Auto (deixar a IA decidir)</option>
+        </select>
+
+        <div class="error-box" id="error-box"></div>
+
+        <button class="btn-generate" id="btn-generate" disabled>
+          ✨ Gerar resultado
+        </button>
+      </div>
+    </div>
+
+    <!-- COLUNA 3: Resultado -->
+    <div class="card">
+      <h2>3 · Resultado</h2>
+      <div class="result-area">
+        <div class="result-placeholder" id="result-placeholder">
+          <span style="font-size:32px">🖼️</span>
+          <span>O resultado aparece aqui</span>
+        </div>
+        <div class="loading-state" id="loading-state">
+          <div class="spinner"></div>
+          <span id="loading-text">Processando...</span>
+          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+        </div>
+        <img class="result-img" id="result-img" alt="Resultado" />
+        <div class="result-actions" id="result-actions" style="display:none">
+          <button class="btn-retry" id="btn-retry">🔄 Tentar novamente</button>
+          <button class="btn-save" id="btn-save">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const MAX_PX = 1200;
+  const JPEG_QUALITY = 0.88;
+  const POLL_INTERVAL = 2000;
+  const POLL_MAX = 35;
+
+  let selectedModelDataUrl = null;
+  let pollTimer = null;
+
+  const apiUrlInput  = document.getElementById('api-url');
+  const apiStatus    = document.getElementById('api-status');
+  const garmentInput = document.getElementById('garment-url');
+  const productPrev  = document.getElementById('product-preview');
+  const categorySel  = document.getElementById('category');
+  const btnGenerate  = document.getElementById('btn-generate');
+  const errorBox     = document.getElementById('error-box');
+  const resultPlaceholder = document.getElementById('result-placeholder');
+  const loadingState = document.getElementById('loading-state');
+  const loadingText  = document.getElementById('loading-text');
+  const progressBar  = document.getElementById('progress-bar');
+  const resultImg    = document.getElementById('result-img');
+  const resultActions = document.getElementById('result-actions');
+  const btnRetry     = document.getElementById('btn-retry');
+  const btnSave      = document.getElementById('btn-save');
+
+  // Salva/recupera URL da API no localStorage
+  const savedUrl = localStorage.getItem('nksw_api_url');
+  if (savedUrl) apiUrlInput.value = savedUrl;
+
+  apiUrlInput.addEventListener('input', () => {
+    localStorage.setItem('nksw_api_url', apiUrlInput.value.trim());
+    updateGenerateBtn();
+  });
+
+  function getApiUrl() {
+    return apiUrlInput.value.trim().replace(/\/$/, '');
+  }
+
+  // Seleção de modelo pré-carregado
+  document.querySelectorAll('.model-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      document.querySelectorAll('.model-thumb').forEach(t => t.classList.remove('selected'));
+      thumb.classList.add('selected');
+      selectedModelDataUrl = thumb.dataset.url;
+      updateGenerateBtn();
+    });
+  });
+
+  // Upload de foto própria
+  document.getElementById('model-upload').addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      selectedModelDataUrl = await processImage(file);
+      document.querySelectorAll('.model-thumb').forEach(t => t.classList.remove('selected'));
+      updateGenerateBtn();
+    } catch { showError('Erro ao processar a foto enviada.'); }
+  });
+
+  // Preview do produto ao digitar URL
+  let previewTimer = null;
+  garmentInput.addEventListener('input', () => {
+    clearTimeout(previewTimer);
+    const url = garmentInput.value.trim();
+    if (!url) { productPrev.classList.remove('visible'); return; }
+    previewTimer = setTimeout(() => {
+      productPrev.src = toAbsoluteUrl(url);
+      productPrev.classList.add('visible');
+      productPrev.onerror = () => productPrev.classList.remove('visible');
+    }, 600);
+    updateGenerateBtn();
+  });
+
+  function updateGenerateBtn() {
+    btnGenerate.disabled = !(selectedModelDataUrl && garmentInput.value.trim() && getApiUrl());
+  }
+
+  function toAbsoluteUrl(url) {
+    if (!url) return url;
+    if (url.startsWith('//')) return 'https:' + url;
+    if (!url.startsWith('http')) return 'https://' + url;
+    return url;
+  }
+
+  function processImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const objUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objUrl);
+        let { width, height } = img;
+        if (width > MAX_PX || height > MAX_PX) {
+          const r = Math.min(MAX_PX / width, MAX_PX / height);
+          width = Math.round(width * r); height = Math.round(height * r);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+      };
+      img.onerror = () => { URL.revokeObjectURL(objUrl); reject(); };
+      img.src = objUrl;
+    });
+  }
+
+  function showError(msg) { errorBox.textContent = msg; errorBox.classList.add('visible'); }
+  function clearError() { errorBox.classList.remove('visible'); }
+  function setProgress(pct) { progressBar.style.width = `${pct}%`; }
+
+  function resetResult() {
+    clearInterval(pollTimer);
+    resultPlaceholder.classList.remove('hidden');
+    loadingState.classList.remove('visible');
+    resultImg.classList.remove('visible');
+    resultActions.style.display = 'none';
+    resultImg.src = '';
+    setProgress(0);
+  }
+
+  btnRetry.addEventListener('click', () => { resetResult(); clearError(); });
+
+  btnSave.addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = resultImg.src;
+    a.download = 'nksw-tryon-resultado.jpg';
+    a.click();
+  });
+
+  btnGenerate.addEventListener('click', async () => {
+    const apiUrl = getApiUrl();
+    const garmentUrl = toAbsoluteUrl(garmentInput.value.trim());
+    const category = categorySel.value;
+
+    clearError();
+    resetResult();
+    btnGenerate.disabled = true;
+    resultPlaceholder.classList.add('hidden');
+    loadingState.classList.add('visible');
+    loadingText.textContent = 'Enviando para processamento...';
+    setProgress(10);
+
+    try {
+      const submitRes = await fetch(`${apiUrl}/api/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_image: selectedModelDataUrl,
+          garment_image: garmentUrl,
+          category,
+        }),
+      });
+      const submitData = await submitRes.json();
+      if (!submitRes.ok || !submitData.jobId) {
+        throw new Error(submitData.error || 'Falha ao enviar');
+      }
+
+      loadingText.textContent = 'Gerando look... (~10s)';
+      setProgress(25);
+
+      const { jobId } = submitData;
+      let attempts = 0;
+
+      await new Promise((resolve, reject) => {
+        pollTimer = setInterval(async () => {
+          attempts++;
+          setProgress(Math.min(25 + (attempts / POLL_MAX) * 65, 90));
+          if (attempts > POLL_MAX) {
+            clearInterval(pollTimer);
+            return reject(new Error('Timeout — tente novamente'));
+          }
+          try {
+            const pollRes = await fetch(`${apiUrl}/api/result?jobId=${encodeURIComponent(jobId)}`);
+            const pollData = await pollRes.json();
+            if (pollData.status === 'completed' && pollData.output) {
+              clearInterval(pollTimer); setProgress(100); resultImg.src = pollData.output; resolve();
+            } else if (pollData.status === 'failed') {
+              clearInterval(pollTimer); reject(new Error(pollData.error || 'Falha no processamento'));
+            }
+          } catch (e) { console.warn('Poll error (continuando):', e.message); }
+        }, POLL_INTERVAL);
+      });
+
+      loadingState.classList.remove('visible');
+      resultImg.classList.add('visible');
+      resultActions.style.display = 'flex';
+
+    } catch (err) {
+      loadingState.classList.remove('visible');
+      resultPlaceholder.classList.remove('hidden');
+      showError(err?.message || 'Erro inesperado');
+    } finally {
+      btnGenerate.disabled = false;
+      updateGenerateBtn();
+    }
+  });
+</script>
+</body>
+</html>

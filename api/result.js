@@ -1,7 +1,7 @@
 // api/result.js — Vercel Serverless Function
-// Verifica o status de um job Replicate (Kolors) e retorna o resultado quando pronto.
+// Verifica o status de um job FASHN e retorna o resultado quando pronto.
 
-const REPLICATE_BASE = 'https://api.replicate.com/v1';
+const FASHN_BASE = 'https://api.fashn.ai/v1';
 
 function cors() {
   return {
@@ -18,40 +18,37 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Método não permitido' });
 
-  const apiKey = process.env.REPLICATE_API_KEY;
+  const apiKey = process.env.FASHN_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
 
   const { jobId } = req.query;
   if (!jobId) return res.status(400).json({ error: 'Parâmetro jobId é obrigatório' });
 
   try {
-    const statusRes = await fetch(`${REPLICATE_BASE}/predictions/${jobId}`, {
+    const statusRes = await fetch(`${FASHN_BASE}/status/${jobId}`, {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
 
     if (!statusRes.ok) {
-      throw new Error(`Replicate status error ${statusRes.status}`);
+      throw new Error(`FASHN status error ${statusRes.status}`);
     }
 
     const data = await statusRes.json();
-    console.log('[result] Replicate status:', data.status, '| id:', jobId);
+    console.log('[result] FASHN status:', data.status, '| id:', jobId);
 
     const status = (data.status || '').toLowerCase();
 
-    if (status === 'failed' || status === 'canceled') {
-      const errMsg = data.error || 'Processamento falhou';
+    if (['failed', 'error', 'cancelled'].includes(status)) {
+      const errMsg = data.error?.message || data.error || data.message || 'Processamento falhou';
       return res.status(200).json({ status: 'failed', error: String(errMsg) });
     }
 
-    if (status === 'succeeded') {
-      const outputUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-      if (!outputUrl) {
-        throw new Error('Replicate completou mas sem output');
-      }
+    if (['completed', 'succeeded', 'success'].includes(status)) {
+      const outputUrl = data.output?.[0] || data.outputs?.result?.[0] || data.result?.[0];
+      if (!outputUrl) throw new Error('FASHN completou mas sem output');
       return res.status(200).json({ status: 'completed', output: outputUrl });
     }
 
-    // starting | processing → ainda aguardando
     return res.status(200).json({ status: 'processing' });
 
   } catch (err) {

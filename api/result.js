@@ -63,7 +63,6 @@ export default async function handler(req, res) {
     }
 
     if (completedStatuses.includes(status)) {
-      // Suporta output em diferentes formatos da API
       const outputUrl = data.output?.[0]
         || data.outputs?.result?.[0]
         || data.outputs?.image
@@ -75,16 +74,11 @@ export default async function handler(req, res) {
         throw new Error('FASHN completou mas sem output');
       }
 
-      const imgRes = await fetch(outputUrl);
-      if (!imgRes.ok) throw new Error('Falha ao buscar imagem resultado');
-
-      const buffer = await imgRes.arrayBuffer();
-      const b64 = bufferToBase64(buffer);
-      const mime = imgRes.headers.get('content-type') || 'image/jpeg';
-
+      // Retorna URL diretamente — mais rápido e evita timeout da Vercel
+      // A URL do FASHN expira em poucas horas, não fica armazenada
       return res.status(200).json({
         status: 'completed',
-        output: `data:${mime};base64,${b64}`,
+        output: outputUrl,
       });
     }
 

@@ -72,14 +72,16 @@ export default async function handler(req, res) {
     const { model_image, garment_image, category = 'auto' } = req.body;
 
     console.log('[submit] garment_image:', garment_image?.slice(0, 100));
-    console.log('[submit] model_image length:', model_image?.length);
+    console.log('[submit] model_image:', model_image?.slice(0, 100));
 
     if (!model_image || !garment_image) {
       return res.status(400).json({ error: 'Campos obrigatórios: model_image, garment_image' });
     }
 
-    // Extrai base64 puro da data URL
-    const personBase64 = model_image.includes(',') ? model_image.split(',')[1] : model_image;
+    // model_image pode ser URL (modelo da loja) ou base64 (foto do cliente)
+    const personBase64 = (model_image.startsWith('http') || model_image.startsWith('//'))
+      ? await fetchBase64(model_image)
+      : (model_image.includes(',') ? model_image.split(',')[1] : model_image);
 
     // Baixa imagem do produto e converte para base64
     const garmentBase64 = await fetchBase64(garment_image);

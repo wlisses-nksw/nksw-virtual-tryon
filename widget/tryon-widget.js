@@ -392,7 +392,10 @@
         resultWrap.classList.add('visible');
 
       } catch (err) {
-        showError(err.message || 'Erro inesperado. Tente novamente.');
+        const msg = err?.message
+          ? err.message
+          : (typeof err === 'string' ? err : JSON.stringify(err));
+        showError(msg || 'Erro inesperado. Tente novamente.');
         previewWrap.classList.add('visible');
         generateBtn.disabled = false;
         setProgress(0);

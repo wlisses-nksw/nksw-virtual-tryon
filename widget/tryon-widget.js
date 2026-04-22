@@ -1,6 +1,10 @@
 /**
- * NKSW Virtual Try-On Widget v3
+ * NKSW Virtual Try-On Widget v2
  * Self-contained — sem dependências externas, CSS injetado automaticamente.
+ * Fluxo: submit (envia foto) → polling a cada 2s → exibe resultado.
+ *
+ * Como usar no Shopify (após adicionar o snippet virtual-tryon.liquid):
+ *   <script src="https://SEU-USUARIO.github.io/nksw-widget/tryon-widget.js" defer></script>
  */
 
 (function () {
@@ -9,7 +13,7 @@
   const MAX_PX = 1200;
   const JPEG_QUALITY = 0.88;
   const POLL_INTERVAL_MS = 2000;
-  const POLL_MAX_ATTEMPTS = 35;
+  const POLL_MAX_ATTEMPTS = 35; // 35 × 2s = 70s de espera máxima
 
   // ─── CSS ───────────────────────────────────────────────────────────────────
   const CSS = `
@@ -50,19 +54,6 @@
 
     .nksw-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
 
-    /* ── Referência visual ── */
-    .nksw-model-ref {
-      display: flex; align-items: center; gap: 12px;
-      background: #f9f9f9; border-radius: 12px; padding: 12px;
-    }
-    .nksw-model-ref img {
-      width: 64px; height: 80px; object-fit: cover;
-      border-radius: 8px; border: 1px solid #e0e0e0; flex-shrink: 0;
-    }
-    .nksw-model-ref-text { font-size: 13px; color: #555; line-height: 1.5; }
-    .nksw-model-ref-text strong { display: block; color: #111; margin-bottom: 2px; font-size: 13px; }
-
-    /* ── Upload ── */
     .nksw-upload-zone {
       border: 2px dashed #d1d1d1; border-radius: 12px;
       padding: 32px 16px; text-align: center; cursor: pointer;
@@ -147,6 +138,7 @@
     document.head.appendChild(s);
   }
 
+  // Redimensiona e converte para base64 via Canvas
   function processImage(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -172,17 +164,7 @@
     });
   }
 
-  function buildModal(modelImageUrl) {
-    const refHTML = modelImageUrl ? `
-      <div class="nksw-model-ref">
-        <img src="${modelImageUrl}" alt="Exemplo de foto" loading="lazy" />
-        <div class="nksw-model-ref-text">
-          <strong>Dica para melhor resultado</strong>
-          Envie uma foto de corpo inteiro, em pé, com boa iluminação — parecida com a do lado.
-        </div>
-      </div>
-    ` : '';
-
+  function buildModal() {
     const overlay = document.createElement('div');
     overlay.className = 'nksw-overlay';
     overlay.setAttribute('role', 'dialog');
@@ -195,8 +177,6 @@
           <button class="nksw-close" aria-label="Fechar">&times;</button>
         </div>
         <div class="nksw-body">
-
-          ${refHTML}
 
           <div class="nksw-upload-zone" id="nksw-drop-zone" tabindex="0" role="button" aria-label="Enviar sua foto">
             <input type="file" id="nksw-file-input" accept="image/jpeg,image/png,image/webp" />
@@ -219,7 +199,7 @@
           <div class="nksw-loading" id="nksw-loading">
             <div class="nksw-spinner"></div>
             <p class="nksw-loading-text" id="nksw-loading-text">
-              Gerando seu look...<br><small>Aguarde alguns segundos</small>
+              Enviando sua foto...<br><small>Aguarde alguns segundos</small>
             </p>
             <div class="nksw-progress">
               <div class="nksw-progress-bar" id="nksw-progress-bar"></div>
@@ -251,17 +231,16 @@
   }
 
   function initModal(btn) {
-    const apiBase       = btn.dataset.apiUrl;
-    const garmentUrl    = toAbsoluteUrl(btn.dataset.garmentUrl);
-    const category      = btn.dataset.category || 'auto';
-    const modelImageUrl = toAbsoluteUrl(btn.dataset.modelImageUrl || '');
+    const apiBase    = btn.dataset.apiUrl;
+    const garmentUrl = toAbsoluteUrl(btn.dataset.garmentUrl);
+    const category   = btn.dataset.category || 'auto';
 
     if (!apiBase || !garmentUrl) {
       console.error('[NKSW TryOn] Atributos data-api-url e data-garment-url são obrigatórios.');
       return;
     }
 
-    const overlay = buildModal(modelImageUrl);
+    const overlay = buildModal();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
@@ -286,6 +265,7 @@
 
     function showError(msg) { errorDiv.textContent = msg; errorDiv.classList.add('visible'); }
     function clearError()   { errorDiv.classList.remove('visible'); }
+
     function setProgress(pct) { progressBar.style.width = `${pct}%`; }
 
     function setFile(file) {
@@ -297,6 +277,7 @@
       resultWrap.classList.remove('visible');
       clearError();
       generateBtn.disabled = false;
+      // Processa em background para ter o base64 pronto ao clicar em gerar
       processImage(file).then(dataUrl => { selectedDataUrl = dataUrl; }).catch(() => {});
     }
 
@@ -356,10 +337,11 @@
       loading.classList.add('visible');
       previewWrap.classList.remove('visible');
       resultWrap.classList.remove('visible');
-      loadingText.innerHTML = 'Gerando seu look...<br><small>Aguarde alguns segundos</small>';
+      loadingText.innerHTML = 'Enviando sua foto...<br><small>Aguarde alguns segundos</small>';
       setProgress(10);
 
       try {
+        // Passo 1: Submit — envia foto e recebe jobId instantaneamente
         const submitRes = await fetch(`${apiBase}/api/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -375,6 +357,7 @@
           throw new Error(submitData.error || 'Falha ao enviar para processamento');
         }
 
+        // Resultado já disponível (Vertex AI retorna síncrono)
         if (submitData.output) {
           setProgress(100);
           resultImg.src = submitData.output;
@@ -385,12 +368,14 @@
         loadingText.innerHTML = 'Gerando seu look...<br><small>Isso leva cerca de 10–20 segundos</small>';
         setProgress(25);
 
+        // Passo 2: Polling — verifica o resultado a cada 2s
         const { jobId } = submitData;
         let attempts = 0;
 
         await new Promise((resolve, reject) => {
           pollTimer = setInterval(async () => {
             attempts++;
+            // Progresso visual gradual: 25% → 90%
             setProgress(Math.min(25 + (attempts / POLL_MAX_ATTEMPTS) * 65, 90));
 
             if (attempts > POLL_MAX_ATTEMPTS) {
@@ -411,7 +396,9 @@
                 clearInterval(pollTimer);
                 reject(new Error(pollData.error || 'Falha no processamento da imagem'));
               }
+              // status === 'processing' → continua aguardando
             } catch (e) {
+              // Erro pontual de rede — não interrompe o polling
               console.warn('[NKSW TryOn] Erro de polling (continuando):', e.message);
             }
           }, POLL_INTERVAL_MS);
@@ -435,6 +422,7 @@
 
   function init() {
     injectStyles();
+    // Suporta tanto data-api-url (Vercel) quanto data-worker-url (legado Cloudflare)
     document.querySelectorAll('.nksw-tryon-btn').forEach(btn => {
       if (!btn.dataset.apiUrl && btn.dataset.workerUrl) {
         btn.dataset.apiUrl = btn.dataset.workerUrl;

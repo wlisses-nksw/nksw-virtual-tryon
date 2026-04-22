@@ -14,16 +14,10 @@
 {% endcomment %}
 
 {%- liquid
-  assign vton_category    = product.metafields.custom.vton_category.value | default: 'auto'
-  assign vton_image       = product.metafields.custom.vton_image_url.value
+  assign vton_category = product.metafields.custom.vton_category.value | default: 'auto'
+  assign vton_image    = product.metafields.custom.vton_image_url.value
   unless vton_image and vton_image != blank
     assign vton_image = product.featured_image | image_url: width: 1200
-  endunless
-  assign vton_model_image = product.metafields.custom.vton_model_image.value
-  unless vton_model_image and vton_model_image != blank
-    if product.images.size > 1
-      assign vton_model_image = product.images[1] | image_url: width: 1200
-    endif
   endunless
   assign api_url = settings.vton_api_url | default: ''
 -%}
@@ -36,7 +30,6 @@
       data-api-url="{{ api_url | escape }}"
       data-garment-url="{{ vton_image | escape }}"
       data-category="{{ vton_category | escape }}"
-      {% if vton_model_image and vton_model_image != blank %}data-model-image-url="{{ vton_model_image | escape }}"{% endif %}
       style="
         display: inline-flex;
         align-items: center;

@@ -1,8 +1,7 @@
 // api/result.js — Vercel Serverless Function
-// Verifica o status de um job FASHN e retorna o resultado quando pronto.
-// Chamada pelo widget a cada 2s (polling do cliente) — cada chamada < 1s.
+// Verifica o status de um job Replicate (Kolors) e retorna o resultado quando pronto.
 
-const FASHN_BASE = 'https://api.fashn.ai/v1';
+const REPLICATE_BASE = 'https://api.replicate.com/v1';
 
 function cors() {
   return {
@@ -12,17 +11,6 @@ function cors() {
   };
 }
 
-// Converte ArrayBuffer para base64 em chunks (evita stack overflow em imagens grandes)
-function bufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return Buffer.from(binary, 'binary').toString('base64');
-}
-
 export default async function handler(req, res) {
   const headers = cors();
   Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
@@ -30,59 +18,40 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Método não permitido' });
 
-  const apiKey = process.env.FASHN_API_KEY;
+  const apiKey = process.env.REPLICATE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
 
   const { jobId } = req.query;
   if (!jobId) return res.status(400).json({ error: 'Parâmetro jobId é obrigatório' });
 
   try {
-    const statusRes = await fetch(`${FASHN_BASE}/status/${jobId}`, {
+    const statusRes = await fetch(`${REPLICATE_BASE}/predictions/${jobId}`, {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
 
     if (!statusRes.ok) {
-      throw new Error(`FASHN status error ${statusRes.status}`);
+      throw new Error(`Replicate status error ${statusRes.status}`);
     }
 
     const data = await statusRes.json();
-
-    // Log para debug (visível nos logs da Vercel)
-    console.log('[result] FASHN status response:', JSON.stringify(data).slice(0, 300));
+    console.log('[result] Replicate status:', data.status, '| id:', jobId);
 
     const status = (data.status || '').toLowerCase();
 
-    // Mapeia todos os status possíveis da FASHN (old e new API)
-    const processingStatuses = ['processing', 'queued', 'in_queue', 'in_progress', 'pending', 'starting'];
-    const failedStatuses = ['failed', 'error', 'cancelled'];
-    const completedStatuses = ['completed', 'succeeded', 'success'];
-
-    if (failedStatuses.includes(status)) {
-      const errMsg = data.error?.message || data.error || data.message || 'Processamento falhou';
+    if (status === 'failed' || status === 'canceled') {
+      const errMsg = data.error || 'Processamento falhou';
       return res.status(200).json({ status: 'failed', error: String(errMsg) });
     }
 
-    if (completedStatuses.includes(status)) {
-      const outputUrl = data.output?.[0]
-        || data.outputs?.result?.[0]
-        || data.outputs?.image
-        || data.result?.[0]
-        || data.image;
-
+    if (status === 'succeeded') {
+      const outputUrl = Array.isArray(data.output) ? data.output[0] : data.output;
       if (!outputUrl) {
-        console.log('[result] Completed but no output found:', JSON.stringify(data).slice(0, 500));
-        throw new Error('FASHN completou mas sem output');
+        throw new Error('Replicate completou mas sem output');
       }
-
-      // Retorna URL diretamente — mais rápido e evita timeout da Vercel
-      // A URL do FASHN expira em poucas horas, não fica armazenada
-      return res.status(200).json({
-        status: 'completed',
-        output: outputUrl,
-      });
+      return res.status(200).json({ status: 'completed', output: outputUrl });
     }
 
-    // Qualquer outro status → ainda processando
+    // starting | processing → ainda aguardando
     return res.status(200).json({ status: 'processing' });
 
   } catch (err) {

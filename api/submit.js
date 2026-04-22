@@ -1,9 +1,10 @@
 // api/submit.js — Vercel Serverless Function
-// Recebe a foto do cliente + URL do produto, envia para FASHN e retorna o jobId.
+// Recebe a foto do cliente + URL do produto, envia para Replicate (Kolors) e retorna o jobId.
 // Retorna imediatamente (< 1s) — sem polling aqui, evita timeout do free tier.
 
-const FASHN_BASE = 'https://api.fashn.ai/v1';
-const MAX_BODY_BYTES = 12 * 1024 * 1024; // 12 MB (base64 de ~9 MB de imagem)
+const REPLICATE_BASE = 'https://api.replicate.com/v1';
+const KOLORS_MODEL = 'kwai-kolors/kolors-virtual-try-on';
+const MAX_BODY_BYTES = 12 * 1024 * 1024; // 12 MB
 
 function cors() {
   return {
@@ -13,6 +14,17 @@ function cors() {
   };
 }
 
+// Mapeia categorias NKSW para as categorias do Kolors
+function mapCategory(category) {
+  const map = {
+    'tops': 'Upper body',
+    'bottoms': 'Lower body',
+    'one-pieces': 'Dresses',
+    'auto': 'Upper body',
+  };
+  return map[category] || 'Upper body';
+}
+
 export default async function handler(req, res) {
   const headers = cors();
   Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
@@ -20,7 +32,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
-  const apiKey = process.env.FASHN_API_KEY;
+  const apiKey = process.env.REPLICATE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
 
   try {
@@ -35,37 +47,39 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Categoria inválida. Use: ${validCategories.join(', ')}` });
     }
 
-    // Valida tamanho aproximado (base64 ~33% maior que binário)
     if (model_image.length > MAX_BODY_BYTES) {
       return res.status(400).json({ error: 'Imagem muito grande. Reduza para menos de 9 MB.' });
     }
 
-    const fashnRes = await fetch(`${FASHN_BASE}/run`, {
+    const replicateRes = await fetch(`${REPLICATE_BASE}/models/${KOLORS_MODEL}/predictions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
+        'Prefer': 'wait=5',
       },
       body: JSON.stringify({
-        model_name: 'tryon-v1.6',
-        inputs: {
-          model_image,
-          garment_image,
-          category,
-          mode: 'quality',
-          moderation_level: 'permissive',
-          garment_photo_type: 'flat-lay',
+        input: {
+          human_img: model_image,
+          garm_img: garment_image,
+          category: mapCategory(category),
         },
       }),
     });
 
-    if (!fashnRes.ok) {
-      const text = await fashnRes.text();
-      throw new Error(`FASHN error ${fashnRes.status}: ${text}`);
+    if (!replicateRes.ok) {
+      const text = await replicateRes.text();
+      throw new Error(`Replicate error ${replicateRes.status}: ${text}`);
     }
 
-    const { id: jobId } = await fashnRes.json();
-    if (!jobId) throw new Error('FASHN não retornou jobId');
+    const data = await replicateRes.json();
+    const jobId = data.id;
+    if (!jobId) throw new Error('Replicate não retornou ID');
+
+    // Se já completou no wait=5s, retorna direto
+    if (data.status === 'succeeded' && data.output) {
+      return res.status(200).json({ jobId, output: data.output });
+    }
 
     return res.status(200).json({ jobId });
 
@@ -75,7 +89,6 @@ export default async function handler(req, res) {
   }
 }
 
-// Aumenta o limite do body parser do Vercel para aceitar imagens em base64
 export const config = {
   api: { bodyParser: { sizeLimit: '15mb' } },
 };

@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Imagem muito grande. Reduza para menos de 9 MB.' });
     }
 
-    const replicateRes = await fetch(`${REPLICATE_BASE}/models/${TRYON_MODEL}/predictions`, {
+    const replicateRes = await fetch(`${REPLICATE_BASE}/predictions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,6 +58,7 @@ export default async function handler(req, res) {
         'Prefer': 'wait=5',
       },
       body: JSON.stringify({
+        version: '0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985',
         input: {
           human_img: model_image,
           garm_img: garment_image,

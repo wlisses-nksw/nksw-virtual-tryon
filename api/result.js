@@ -47,20 +47,34 @@ export default async function handler(req, res) {
 
     const data = await statusRes.json();
 
-    if (data.status === 'processing' || data.status === 'queued') {
-      // Ainda processando — cliente deve chamar novamente em 2s
-      return res.status(200).json({ status: 'processing' });
+    // Log para debug (visível nos logs da Vercel)
+    console.log('[result] FASHN status response:', JSON.stringify(data).slice(0, 300));
+
+    const status = (data.status || '').toLowerCase();
+
+    // Mapeia todos os status possíveis da FASHN (old e new API)
+    const processingStatuses = ['processing', 'queued', 'in_queue', 'in_progress', 'pending', 'starting'];
+    const failedStatuses = ['failed', 'error', 'cancelled'];
+    const completedStatuses = ['completed', 'succeeded', 'success'];
+
+    if (failedStatuses.includes(status)) {
+      const errMsg = data.error?.message || data.error || data.message || 'Processamento falhou';
+      return res.status(200).json({ status: 'failed', error: String(errMsg) });
     }
 
-    if (data.status === 'failed') {
-      return res.status(200).json({ status: 'failed', error: data.error || 'Processamento falhou' });
-    }
+    if (completedStatuses.includes(status)) {
+      // Suporta output em diferentes formatos da API
+      const outputUrl = data.output?.[0]
+        || data.outputs?.result?.[0]
+        || data.outputs?.image
+        || data.result?.[0]
+        || data.image;
 
-    if (data.status === 'completed') {
-      const outputUrl = data.output?.[0];
-      if (!outputUrl) throw new Error('FASHN completou mas sem output');
+      if (!outputUrl) {
+        console.log('[result] Completed but no output found:', JSON.stringify(data).slice(0, 500));
+        throw new Error('FASHN completou mas sem output');
+      }
 
-      // Busca a imagem e retorna como base64 — zero URL externa exposta ao cliente
       const imgRes = await fetch(outputUrl);
       if (!imgRes.ok) throw new Error('Falha ao buscar imagem resultado');
 
@@ -74,7 +88,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Status desconhecido
+    // Qualquer outro status → ainda processando
     return res.status(200).json({ status: 'processing' });
 
   } catch (err) {

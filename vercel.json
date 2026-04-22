@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/submit.js": { "maxDuration": 60 },
-    "api/result.js":  { "maxDuration": 10 }
+    "api/result.js":  { "maxDuration": 10 },
+    "api/lead.js":    { "maxDuration": 10 }
   },
   "headers": [
     {

@@ -223,9 +223,16 @@
     return overlay;
   }
 
+  function toAbsoluteUrl(url) {
+    if (!url) return url;
+    if (url.startsWith('//')) return 'https:' + url;
+    if (!url.startsWith('http')) return 'https://' + url;
+    return url;
+  }
+
   function initModal(btn) {
-    const apiBase    = btn.dataset.apiUrl;     // ex: https://nksw-tryon.vercel.app
-    const garmentUrl = btn.dataset.garmentUrl;
+    const apiBase    = btn.dataset.apiUrl;
+    const garmentUrl = toAbsoluteUrl(btn.dataset.garmentUrl);
     const category   = btn.dataset.category || 'auto';
 
     if (!apiBase || !garmentUrl) {

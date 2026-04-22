@@ -1,0 +1,14 @@
+name = "nksw-virtual-tryon"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers Paid plan necessário para requests > 10ms CPU
+# (o polling FASHN precisa de ~8-12s de I/O wait — cobrado apenas por CPU usada, não por wait)
+
+[vars]
+# Domínio(s) permitidos — sobrescrito pelo secret ALLOWED_SHOP_DOMAIN
+ALLOWED_SHOP_DOMAIN = "sua-loja.myshopify.com"
+
+# Secrets configurados via: wrangler secret put FASHN_API_KEY
+# Nunca coloque API keys aqui — use secrets

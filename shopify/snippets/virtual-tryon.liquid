@@ -1,0 +1,57 @@
+{% comment %}
+  Snippet: virtual-tryon.liquid
+  Renderiza o botão "Experimentar Virtualmente" na página de produto.
+
+  Como incluir no template de produto:
+    {% render 'virtual-tryon' %}
+
+  O script do widget deve estar carregado no layout/theme.liquid (ver DEPLOY.md).
+
+  Metafields opcionais no produto (namespace: custom):
+    custom.vton_category  → tops | bottoms | one-pieces | auto  (default: auto)
+    custom.vton_image_url → URL personalizada da imagem do produto para o try-on
+                            (deixe em branco para usar a imagem principal do produto)
+{% endcomment %}
+
+{%- liquid
+  assign vton_category = product.metafields.custom.vton_category.value | default: 'auto'
+  assign vton_image    = product.metafields.custom.vton_image_url.value
+  unless vton_image and vton_image != blank
+    assign vton_image = product.featured_image | image_url: width: 1200
+  endunless
+  assign api_url = settings.vton_api_url | default: ''
+-%}
+
+{%- if api_url != blank -%}
+  <div class="nksw-tryon-wrapper" style="margin: 12px 0;">
+    <button
+      type="button"
+      class="nksw-tryon-btn"
+      data-api-url="{{ api_url | escape }}"
+      data-garment-url="{{ vton_image | escape }}"
+      data-category="{{ vton_category | escape }}"
+      style="
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 14px 20px;
+        background: #fff;
+        color: #111;
+        border: 1.5px solid #111;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        justify-content: center;
+        transition: background 0.2s;
+        font-family: inherit;
+      "
+      onmouseover="this.style.background='#f5f5f5'"
+      onmouseout="this.style.background='#fff'"
+    >
+      <span aria-hidden="true">👙</span>
+      Experimentar Virtualmente
+    </button>
+  </div>
+{%- endif -%}

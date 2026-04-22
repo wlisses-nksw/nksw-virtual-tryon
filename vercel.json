@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "functions": {
+    "api/submit.js": { "maxDuration": 10 },
+    "api/result.js":  { "maxDuration": 10 }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}

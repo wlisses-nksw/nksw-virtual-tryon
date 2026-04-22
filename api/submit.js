@@ -98,8 +98,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         instances: [{
-          person_image:   { bytesBase64Encoded: personBase64 },
-          product_images: [{ bytesBase64Encoded: garmentBase64 }],
+          personImage:   { image: { bytesBase64Encoded: personBase64 } },
+          productImages: [{ image: { bytesBase64Encoded: garmentBase64 } }],
         }],
         parameters: { sampleCount: 1 },
       }),

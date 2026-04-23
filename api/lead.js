@@ -18,8 +18,8 @@ export default async function handler(req, res) {
   const { name, phone, email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'E-mail obrigatório' });
 
-  const shopDomain  = process.env.SHOPIFY_STORE;
-  const adminToken  = process.env.SHOPIFY_ADMIN_TOKEN;
+  const shopDomain  = process.env.SHOPIFY_STORE?.trim();
+  const adminToken  = process.env.SHOPIFY_ADMIN_TOKEN?.trim();
 
   if (!shopDomain || !adminToken) {
     console.warn('[lead] SHOPIFY_STORE ou SHOPIFY_ADMIN_TOKEN não configurados — lead não salvo:', email);
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
             first_name: name || '',
             phone: phone ? phone.replace(/\D/g, '').replace(/^(\d{2})(\d{5})(\d{4})$/, '+55$1$2$3') : undefined,
             accepts_marketing: true,
+            email_marketing_consent: { state: 'subscribed', opt_in_level: 'single_opt_in' },
             tags: 'newsletter,provador-virtual',
           },
         }),

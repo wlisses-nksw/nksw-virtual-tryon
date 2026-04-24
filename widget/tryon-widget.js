@@ -420,8 +420,36 @@
     changeBtn.addEventListener('click', resetToUpload);
     retryBtn.addEventListener('click',  resetToUpload);
     saveBtn.addEventListener('click', () => {
+      const src = resultImg.src;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      // Converte base64 → Blob para download confiável
+      let blobUrl = null;
+      try {
+        const [header, b64] = src.split(',');
+        const mime = header.split(':')[1].split(';')[0];
+        const bytes = atob(b64);
+        const buf = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+        blobUrl = URL.createObjectURL(new Blob([buf], { type: mime }));
+      } catch (_) {}
+
+      if (isIOS) {
+        // iOS Safari não suporta <a download> — abre em nova aba para salvar na galeria
+        window.open(blobUrl || src, '_blank');
+        return;
+      }
+
+      // Android e desktop: download direto
       const a = document.createElement('a');
-      a.href = resultImg.src; a.download = 'meu-look-nksw.jpg'; a.click();
+      a.href = blobUrl || src;
+      a.download = 'meu-look-nksw.jpg';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      }, 200);
     });
 
     // ── Fluxo principal ──────────────────────────────────────────────────────

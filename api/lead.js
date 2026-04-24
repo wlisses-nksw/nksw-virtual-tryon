@@ -70,11 +70,11 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log('[lead] Salvo no Shopify:', email, '| status:', shopRes.status);
-    return res.status(200).json({ ok: true, _debug: { shopStatus: shopRes.status, shopBody: data } });
+    console.log('[lead] Salvo no Shopify:', email);
+    return res.status(200).json({ ok: true });
 
   } catch (err) {
     console.error('[lead]', err.message);
-    return res.status(200).json({ ok: true, _debug: { error: err.message } }); // falha silenciosa
+    return res.status(200).json({ ok: true }); // falha silenciosa
   }
 }

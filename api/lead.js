@@ -16,14 +16,14 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
   const { name, phone, email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'E-mail obrigatório' });
+  if (!email) return res.status(400).json({ error: 'E-mail obrigatório', bodyRecebido: req.body });
 
   const shopDomain  = process.env.SHOPIFY_STORE?.trim();
   const adminToken  = process.env.SHOPIFY_ADMIN_TOKEN?.trim();
 
   if (!shopDomain || !adminToken) {
-    console.warn('[lead] SHOPIFY_STORE ou SHOPIFY_ADMIN_TOKEN não configurados — lead não salvo:', email);
-    return res.status(200).json({ ok: true });
+    console.warn('[lead] env vars faltando');
+    return res.status(200).json({ ok: true, _d: 'env_missing', email });
   }
 
   try {
@@ -71,10 +71,10 @@ export default async function handler(req, res) {
     }
 
     console.log('[lead] Salvo no Shopify:', email);
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, _d: 'saved', shopStatus: shopRes.status, email });
 
   } catch (err) {
     console.error('[lead]', err.message);
-    return res.status(200).json({ ok: true }); // falha silenciosa
+    return res.status(200).json({ ok: true, _d: 'catch', error: err.message, email }); // falha silenciosa
   }
 }

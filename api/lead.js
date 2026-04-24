@@ -71,7 +71,7 @@ export default async function handler(req, res) {
     }
 
     console.log('[lead] Salvo no Shopify:', email, '| status:', shopRes.status);
-    return res.status(200).json({ ok: true, _debug: { shopStatus: shopRes.status } });
+    return res.status(200).json({ ok: true, _debug: { shopStatus: shopRes.status, shopBody: data } });
 
   } catch (err) {
     console.error('[lead]', err.message);
